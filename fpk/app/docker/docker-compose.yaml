@@ -1,11 +1,9 @@
 services:
   fnportgate:
-    # 镜像仓库：GitHub Container Registry（ghcr.io），指向 HackettMX/fnUPnPGate。
-    # 国内加速：拉取走 ghcr.1ms.run 反代（镜像本身仍推送到 ghcr.io）。
-    # 若该反代失效，改回 ghcr.io 或换成 ghcr.nju.edu.cn，只需改本行前缀即可。
-    # 重要：需在 GitHub 仓库的 Packages 设置里把该镜像包设为 Public，
-    # 否则加速源无法回源拉取，飞牛仍会报 denied。
-    image: ghcr.1ms.run/hackettmx/fnupnpgate:1.0.0
+    # 镜像仓库：Docker Hub（hackett/fnupnpgate），CI 同时推一份到 ghcr.io 作备份。
+    # Docker Hub 仓库默认 Public，且飞牛内置镜像加速器对它有效，国内拉取更稳。
+    # 如需换回 ghcr，改为 ghcr.io/hackettmx/fnupnpgate:1.0.0 并设包为 Public 即可。
+    image: hackett/fnupnpgate:1.0.0
     container_name: fnportgate
     # UPnP 需要 SSDP 组播发现网关，且端口映射要指向本机局域网 IP，
     # 必须使用 host 网络模式，不能用桥接。

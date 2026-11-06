@@ -149,15 +149,15 @@ docker push ghcr.io/hackettmx/fnupnpgate:1.0.0
 
 > ⚠️ **关键**：ghcr 镜像包默认是 **Private**。推送成功后，请到 GitHub 仓库的 `Packages` 页面 → 找到 `fnupnpgate` 包 → `Package settings` → `Danger Zone` → `Change visibility` 改为 **Public**。否则飞牛应用中心拉取时会报 `denied`。
 
-### 🌐 国内网络加速
+### 🌐 国内网络加速（Docker Hub）
 
-飞牛内置的镜像加速器**只对 Docker Hub 生效，对 ghcr.io 无效**。因此本项目 `.fpk` 里 compose 的拉取地址默认使用国内反代前缀：
+飞牛内置的镜像加速器**只对 Docker Hub 生效，对 ghcr.io 无效**。因此本项目 CI 会把镜像同时推送到 Docker Hub，`.fpk` 里 compose 的拉取地址默认使用 Docker Hub：
 
 ```yaml
-image: ghcr.1ms.run/hackettmx/fnupnpgate:1.0.0
+image: hackett/fnupnpgate:1.0.0
 ```
 
-镜像本身仍推送到 `ghcr.io`，`ghcr.1ms.run` 仅作拉取加速。若该反代失效，只需把前缀换成 `ghcr.io` 或 `ghcr.nju.edu.cn`（改 `fpk/app/docker/docker-compose.yaml` 后重新打包即可）。
+Docker Hub 仓库默认 **Public**，无需额外设置。在飞牛「Docker → 镜像仓库」里配好任意 Docker Hub 加速器，即可满速拉取。
 
 然后打包：
 

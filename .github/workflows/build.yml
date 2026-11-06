@@ -31,10 +31,11 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           fi
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          DH_USER="${{ secrets.DOCKERHUB_USERNAME }}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
-          echo "push_image=ghcr.io/${OWNER}/fnupnpgate" >> "$GITHUB_OUTPUT"
-          echo "pull_image=ghcr.1ms.run/${OWNER}/fnupnpgate" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=ghcr.io/${OWNER}/fnupnpgate" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_image=${DH_USER}/fnupnpgate" >> "$GITHUB_OUTPUT"
+          echo "pull_image=${DH_USER}/fnupnpgate" >> "$GITHUB_OUTPUT"
 
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -46,14 +47,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 构建并推送镜像
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 构建并推送镜像（Docker Hub + GHCR 双推）
         uses: docker/build-push-action@v6
         with:
           context: src
           push: true
           tags: |
-            ${{ steps.meta.outputs.push_image }}:${{ steps.meta.outputs.version }}
-            ${{ steps.meta.outputs.push_image }}:latest
+            ${{ steps.meta.outputs.dockerhub_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.dockerhub_image }}:latest
+            ${{ steps.meta.outputs.ghcr_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.ghcr_image }}:latest
 
       - name: 同步版本号到 manifest 与 compose
         run: |
