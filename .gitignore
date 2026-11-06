@@ -21,3 +21,9 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# 本地 UI 预览（截图调试）
+.preview/
+
+# 本地编译产物（Windows）
+*.exe

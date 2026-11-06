@@ -78,12 +78,18 @@
     $("foot-lan").textContent = list.lan_ip || "—";
   }
 
-  /* ---------------- 映射表格 ---------------- */
+  /* ---------------- 映射列表 ---------------- */
+  // 页面由两块独立面板构成：
+  //   1) 端口映射     —— 本应用添加（managed）
+  //   2) 其他设备添加 —— 路由器上已存在、非本应用托管
   function renderMappings(list) {
     var area = $("mapping-area");
-    var mappings = list.mappings;
+    var extPanel = $("ext-panel");
+    var extArea = $("external-area");
+    var mappings = list.mappings || [];
 
     if (!list.connected) {
+      extPanel.classList.add("hidden");
       area.innerHTML =
         '<div class="state">' +
           '<span class="emoji">📡</span>' +
@@ -95,7 +101,11 @@
       return;
     }
 
-    if (mappings.length === 0) {
+    var mine = mappings.filter(function (m) { return m.managed; });
+    var others = mappings.filter(function (m) { return !m.managed; });
+
+    // 本应用添加
+    if (mine.length === 0) {
       area.innerHTML =
         '<div class="state">' +
           '<span class="emoji">🔌</span>' +
@@ -105,57 +115,37 @@
         "</div>";
       var b = $("btn-empty-add");
       if (b) b.addEventListener("click", openModal);
-      return;
+    } else {
+      area.innerHTML = renderTable(mine);
     }
 
-    var mine = mappings.filter(function (m) { return m.managed; });
-    var others = mappings.filter(function (m) { return !m.managed; });
-
-    area.innerHTML =
-      renderGroup(
-        "本应用添加",
-        mine,
-        "由本应用创建，可删除或重新启用",
-        function (m) { return buildRow(m); }
-      ) +
-      renderGroup(
-        "其他设备添加",
-        others,
-        "路由器上已存在，由其他设备或程序创建",
-        function (m) { return buildRow(m); }
-      );
+    // 其他设备添加：独立面板
+    $("ext-count").textContent = String(others.length);
+    extArea.innerHTML = others.length === 0
+      ? '<div class="hint-empty">' +
+          '<span class="hi-icon" aria-hidden="true">🛰️</span>' +
+          "<span>路由器上暂时没有其他设备创建的转发规则</span>" +
+        "</div>"
+      : renderTable(others);
+    extPanel.classList.remove("hidden");
 
     bindRowActions();
   }
 
-  // 一个分区：标题 + 数量 + 说明 + 表格（空时给出占位说明）
-  function renderGroup(title, list, hint, rowFn) {
-    var body;
-    if (list.length === 0) {
-      body = '<div class="group-empty">暂无</div>';
-    } else {
-      body =
-        '<div class="table-wrap">' +
-          "<table>" +
-            "<thead><tr>" +
-              "<th>描述</th><th>协议</th><th>外部端口</th><th>内部地址</th><th>状态</th><th></th>" +
-            "</tr></thead>" +
-            "<tbody>" + list.map(rowFn).join("") + "</tbody>" +
-          "</table>" +
-        "</div>";
-    }
+  function renderTable(list) {
     return (
-      '<section class="group">' +
-        '<div class="group-head">' +
-          '<h3>' + title + '<span class="group-count">' + list.length + "</span></h3>" +
-          "<p>" + hint + "</p>" +
-        "</div>" +
-        body +
-      "</section>"
+      '<div class="table-wrap">' +
+        "<table>" +
+          "<thead><tr>" +
+            "<th>描述</th><th>协议</th><th>外部端口</th><th>内部地址</th><th>状态</th><th></th>" +
+          "</tr></thead>" +
+          "<tbody>" + list.map(buildRow).join("") + "</tbody>" +
+        "</table>" +
+      "</div>"
     );
   }
 
-  // 单行渲染，两个分区共用
+  // 单行渲染，两块面板共用
   function buildRow(m) {
     var protoBadge = m.protocol === "UDP"
       ? '<span class="badge badge-udp">UDP</span>'
