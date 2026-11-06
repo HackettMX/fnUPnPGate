@@ -108,56 +108,86 @@
       return;
     }
 
-    var rows = mappings.map(function (m) {
-      var protoBadge = m.protocol === "UDP"
-        ? '<span class="badge badge-udp">UDP</span>'
-        : '<span class="badge badge-tcp">TCP</span>';
-
-      var statusTag;
-      if (m.active && m.managed) {
-        statusTag = '<span class="status-tag status-active">生效中</span>';
-      } else if (m.active && !m.managed) {
-        statusTag = '<span class="status-tag status-external">外部</span>';
-      } else {
-        statusTag = '<span class="status-tag status-inactive">未生效</span>';
-      }
-
-      var descHtml = escapeHtml(m.description || "—") +
-        (m.managed ? "" : '<span class="ext-tag">非本应用管理</span>');
-
-      var actions = "";
-      if (m.managed) {
-        if (!m.active) {
-          actions += '<button class="mini-btn primary" data-act="enable" data-id="' + m.id + '">重新启用</button>';
-        }
-        actions += '<button class="mini-btn danger" data-act="delete" data-id="' + m.id + '">删除</button>';
-      } else {
-        actions += '<button class="mini-btn danger" data-act="delete-ext" data-ext="' + m.external_port + '" data-proto="' + m.protocol + '">删除</button>';
-      }
-
-      return (
-        "<tr>" +
-          '<td class="td-desc">' + descHtml + "</td>" +
-          "<td>" + protoBadge + "</td>" +
-          '<td class="port">' + m.external_port + "</td>" +
-          '<td class="addr">' + escapeHtml(m.internal_client || "—") + " : " + m.internal_port + "</td>" +
-          "<td>" + statusTag + "</td>" +
-          '<td><div class="row-actions">' + actions + "</div></td>" +
-        "</tr>"
-      );
-    }).join("");
+    var mine = mappings.filter(function (m) { return m.managed; });
+    var others = mappings.filter(function (m) { return !m.managed; });
 
     area.innerHTML =
-      '<div class="table-wrap">' +
-        "<table>" +
-          "<thead><tr>" +
-            "<th>描述</th><th>协议</th><th>外部端口</th><th>内部地址</th><th>状态</th><th></th>" +
-          "</tr></thead>" +
-          "<tbody>" + rows + "</tbody>" +
-        "</table>" +
-      "</div>";
+      renderGroup(
+        "本应用添加",
+        mine,
+        "由本应用创建，可删除或重新启用",
+        function (m) { return buildRow(m); }
+      ) +
+      renderGroup(
+        "其他设备添加",
+        others,
+        "路由器上已存在，由其他设备或程序创建",
+        function (m) { return buildRow(m); }
+      );
 
     bindRowActions();
+  }
+
+  // 一个分区：标题 + 数量 + 说明 + 表格（空时给出占位说明）
+  function renderGroup(title, list, hint, rowFn) {
+    var body;
+    if (list.length === 0) {
+      body = '<div class="group-empty">暂无</div>';
+    } else {
+      body =
+        '<div class="table-wrap">' +
+          "<table>" +
+            "<thead><tr>" +
+              "<th>描述</th><th>协议</th><th>外部端口</th><th>内部地址</th><th>状态</th><th></th>" +
+            "</tr></thead>" +
+            "<tbody>" + list.map(rowFn).join("") + "</tbody>" +
+          "</table>" +
+        "</div>";
+    }
+    return (
+      '<section class="group">' +
+        '<div class="group-head">' +
+          '<h3>' + title + '<span class="group-count">' + list.length + "</span></h3>" +
+          "<p>" + hint + "</p>" +
+        "</div>" +
+        body +
+      "</section>"
+    );
+  }
+
+  // 单行渲染，两个分区共用
+  function buildRow(m) {
+    var protoBadge = m.protocol === "UDP"
+      ? '<span class="badge badge-udp">UDP</span>'
+      : '<span class="badge badge-tcp">TCP</span>';
+
+    // 来源已由分组区分，状态列只表达"是否生效"，避免信息重复
+    var statusTag = m.active
+      ? '<span class="status-tag status-active">生效中</span>'
+      : '<span class="status-tag status-inactive">未生效</span>';
+
+    var descHtml = escapeHtml(m.description || "—");
+
+    var actions = "";
+    if (m.managed) {
+      if (!m.active) {
+        actions += '<button class="mini-btn primary" data-act="enable" data-id="' + m.id + '">重新启用</button>';
+      }
+      actions += '<button class="mini-btn danger" data-act="delete" data-id="' + m.id + '">删除</button>';
+    } else {
+      actions += '<button class="mini-btn danger" data-act="delete-ext" data-ext="' + m.external_port + '" data-proto="' + m.protocol + '">删除</button>';
+    }
+
+    return (
+      "<tr>" +
+        '<td class="td-desc">' + descHtml + "</td>" +
+        "<td>" + protoBadge + "</td>" +
+        '<td class="port">' + m.external_port + "</td>" +
+        '<td class="addr">' + escapeHtml(m.internal_client || "—") + " : " + m.internal_port + "</td>" +
+        "<td>" + statusTag + "</td>" +
+        '<td><div class="row-actions">' + actions + "</div></td>" +
+      "</tr>"
+    );
   }
 
   function escapeHtml(str) {
