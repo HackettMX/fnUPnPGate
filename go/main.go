@@ -44,7 +44,10 @@ func main() {
 		slog.Error("内嵌前端资源不可用", "err", err)
 		os.Exit(1)
 	}
+	// 同时兼容根路径与 /static/ 前缀：前端资源引用任一写法都能命中，
+	// 避免路径不一致导致样式/脚本 404、桌面窗口白屏。
 	mux.Handle("/", staticHandler(staticRoot))
+	mux.Handle("/static/", http.StripPrefix("/static", staticHandler(staticRoot)))
 
 	server := &http.Server{
 		Addr:              cfg.listenAddr(),
@@ -104,6 +107,9 @@ func staticHandler(root fs.FS) http.Handler {
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// 飞牛桌面本身是独立源的 Web 应用（且常用非默认端口），
+		// 显式允许被任意源 iframe 内嵌，避免桌面窗口白屏。
+		w.Header().Set("Content-Security-Policy", "frame-ancestors *")
 		fileServer.ServeHTTP(w, r)
 	})
 }

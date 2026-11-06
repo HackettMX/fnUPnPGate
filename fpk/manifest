@@ -1,5 +1,5 @@
 appname="fnportgate"
-version="2.0.0"
+version="2.0.1"
 display_name="端口转发"
 desc="基于 UPnP 的路由器端口转发管理工具：查看公网 IP 与网关状态，一键增删 NAT 端口映射规则。原生应用，无需 Docker。"
 source="thirdparty"
@@ -19,4 +19,4 @@ desktop_uidir="ui"
 desktop_applaunchname="fnportgate.main"
 disable_authorization_path=true
 
-changelog="2.0.0 改为原生应用：内置静态编译的可执行文件，安装不再依赖 Docker、不需要拉取镜像，装完即用。"
+changelog="2.0.1 修复桌面窗口白屏：前端静态资源路径与内置服务路由不一致，导致样式与脚本 404。同时加固启动脚本（自动探测可执行文件路径、端口被占用时明确报错）。"

@@ -1,15 +1,11 @@
 #!/bin/sh
-# fnPortGate 安装后钩子：准备持久化数据目录，避免首次启动时权限问题。
+# fnPortGate 安装后钩子：准备持久化数据目录。
+# 可执行文件的实际路径在 start 时自动探测（不同 fnOS 版本解包层级不同），
+# 因此这里只做目录准备，不做硬性路径校验，避免误判导致安装失败。
 set -u
 
 DATA_DIR="${TRIM_PKGVAR:-/tmp/fnportgate}"
 mkdir -p "$DATA_DIR" 2>/dev/null || true
 chmod 700 "$DATA_DIR" 2>/dev/null || true
-
-APP_BIN="${TRIM_APPDEST:-/var/apps/fnportgate/target}/bin/fnportgate"
-if [ ! -x "$APP_BIN" ]; then
-  echo "可执行文件缺失或不可执行：$APP_BIN" >>"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null
-  exit 1
-fi
 
 exit 0

@@ -6,7 +6,7 @@
 #   status 运行中返回 0，未运行返回 3（飞牛据此判断应用状态）
 set -u
 
-APP_BIN="${TRIM_APPDEST:-/var/apps/fnportgate/target}/bin/fnportgate"
+APP_ROOT="${TRIM_APPDEST:-/var/apps/fnportgate/target}"
 DATA_DIR="${TRIM_PKGVAR:-/tmp/fnportgate}"
 PORT="${TRIM_SERVICE_PORT:-8090}"
 PID_FILE="${DATA_DIR}/fnportgate.pid"
@@ -21,6 +21,21 @@ fail() {
   printf '%s\n' "$*" >>"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null
   log "ERROR: $*"
   exit 1
+}
+
+# 不同 fnOS 版本解包层级不一（有的带 target 层、有的直接铺在应用根），
+# 逐个探测，避免因路径差异导致"启动成功但页面白屏"。
+resolve_bin() {
+  local candidate
+  for candidate in \
+    "${APP_ROOT}/bin/fnportgate" \
+    "${APP_ROOT}/target/bin/fnportgate" \
+    "/var/apps/fnportgate/target/bin/fnportgate" \
+    "/var/apps/fnportgate/bin/fnportgate" \
+    "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/app/bin/fnportgate"; do
+    [ -n "$candidate" ] && [ -x "$candidate" ] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
 }
 
 read_pid() {
@@ -55,11 +70,19 @@ start() {
     return 0
   fi
 
-  [ -x "$APP_BIN" ] || fail "可执行文件缺失或不可执行：$APP_BIN"
+  local app_bin
+  app_bin="$(resolve_bin)" || fail "找不到可执行文件：${APP_ROOT}/bin/fnportgate，请重新安装应用"
+
+  # 端口被别的程序占用时，接口永远起不来，页面就会是空白。
+  # 这种情况必须显式报错，而不是"启动成功"。
+  if port_open; then
+    fail "端口 ${PORT} 已被其他程序占用，请在应用设置中更换端口后重试"
+  fi
+
   mkdir -p "$DATA_DIR" || fail "无法创建数据目录：$DATA_DIR"
   : >>"$LOG_FILE" 2>/dev/null
 
-  log "starting: $APP_BIN port=$PORT data=$DATA_DIR"
+  log "starting: $app_bin port=$PORT data=$DATA_DIR"
   cd "$DATA_DIR" || return 1
 
   if command -v setsid >/dev/null 2>&1; then
@@ -68,25 +91,26 @@ start() {
     FNPORTGATE_WEB_PORT="$PORT" \
     FNPORTGATE_DATA_DIR="$DATA_DIR" \
     FNPORTGATE_LOG_LEVEL=INFO \
-      setsid "$APP_BIN" >>"$LOG_FILE" 2>&1 &
+      setsid "$app_bin" >>"$LOG_FILE" 2>&1 &
   else
     FNPORTGATE_WEB_HOST=0.0.0.0 \
     FNPORTGATE_WEB_PORT="$PORT" \
     FNPORTGATE_DATA_DIR="$DATA_DIR" \
     FNPORTGATE_LOG_LEVEL=INFO \
-      nohup "$APP_BIN" >>"$LOG_FILE" 2>&1 &
+      nohup "$app_bin" >>"$LOG_FILE" 2>&1 &
   fi
 
   echo $! >"$PID_FILE"
 
-  if wait_ready; then
+  if wait_ready && is_running; then
     log "started, pid=$(read_pid) port=$PORT"
     return 0
   fi
 
-  log "start timeout after 10s, tail: $(tail -n 5 "$LOG_FILE" 2>/dev/null | tr '\n' ' ')"
+  local detail
+  detail="$(tail -n 5 "$LOG_FILE" 2>/dev/null | tr '\n' ' ')"
   stop >/dev/null 2>&1
-  fail "端口 ${PORT} 在 10 秒内未就绪，请查看日志：${LOG_FILE}"
+  fail "服务启动失败，端口 ${PORT} 在 10 秒内未就绪。日志：${LOG_FILE} ${detail}"
 }
 
 stop() {
