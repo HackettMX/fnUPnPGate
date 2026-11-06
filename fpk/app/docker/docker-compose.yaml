@@ -1,0 +1,17 @@
+services:
+  fnportgate:
+    # 镜像仓库：GitHub Container Registry（ghcr.io），指向 HackettMX/fnUPnPGate。
+    # 重要：需在 GitHub 仓库的 Packages 设置里把该镜像包设为 Public，
+    # 否则飞牛应用中心拉取时会因未认证而被拒绝（denied）。
+    image: ghcr.io/hackettmx/fnupnpgate:1.0.0
+    container_name: fnportgate
+    # UPnP 需要 SSDP 组播发现网关，且端口映射要指向本机局域网 IP，
+    # 必须使用 host 网络模式，不能用桥接。
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - FN_UPNP_WEB_PORT=8090
+      - FN_UPNP_DATA_DIR=/data
+      - TZ=Asia/Shanghai
+    volumes:
+      - ${TRIM_PKGVAR}/data:/data

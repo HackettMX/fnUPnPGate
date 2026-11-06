@@ -1,0 +1,22 @@
+appname="fnportgate"
+version="1.0.0"
+display_name="端口转发"
+desc="基于 UPnP 的路由器端口转发管理工具：查看公网 IP 与网关状态，一键增删 NAT 端口映射规则。"
+source="thirdparty"
+platform="all"
+
+maintainer="fnPortGate"
+maintainer_url="https://github.com/HackettMX/fnUPnPGate"
+
+os_min_version="0.9.0"
+
+ctl_stop=true
+checkport=false
+service_port=8090
+install_type=""
+
+desktop_uidir="ui"
+desktop_applaunchname="fnportgate.main"
+disable_authorization_path=true
+
+changelog="1.0.0 首个版本：UPnP 网关发现、公网 IP 查看、端口映射增删与状态展示。"

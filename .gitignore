@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 运行时数据（本地测试）
+data/
+*.json.tmp
+
+# 构建产物
+dist/
+*.fpk
+.tools/
+
+# 本地工作记忆
+.workbuddy/
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
