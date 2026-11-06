@@ -73,6 +73,17 @@ start() {
   local app_bin
   app_bin="$(resolve_bin)" || fail "找不到可执行文件：${APP_ROOT}/bin/fnportgate，请重新安装应用"
 
+  # 飞牛统一网关要求 Socket 位于应用 target 目录下，与 app/ui/config 的
+  # gatewaySocket 对应（即 ${TRIM_APPDEST}/app.sock）。
+  local app_root app_socket
+  app_root="$(cd "$(dirname "$app_bin")/.." 2>/dev/null && pwd)"
+  app_socket="${app_root}/app.sock"
+  # 部分 fnOS 版本安装目录属 root 且不可写，这里尽力补齐写权限，
+  # 否则 Socket 建不起来，桌面入口会白屏（端口直连仍可用）。
+  if [ -n "$app_root" ] && [ ! -w "$app_root" ]; then
+    chmod 775 "$app_root" 2>/dev/null || true
+  fi
+
   # 端口被别的程序占用时，接口永远起不来，页面就会是空白。
   # 这种情况必须显式报错，而不是"启动成功"。
   if port_open; then
@@ -90,12 +101,16 @@ start() {
     FNPORTGATE_WEB_HOST=0.0.0.0 \
     FNPORTGATE_WEB_PORT="$PORT" \
     FNPORTGATE_DATA_DIR="$DATA_DIR" \
+    FNPORTGATE_SOCKET="$app_socket" \
+    FNPORTGATE_GATEWAY_PREFIX="/app/fnportgate" \
     FNPORTGATE_LOG_LEVEL=INFO \
       setsid "$app_bin" >>"$LOG_FILE" 2>&1 &
   else
     FNPORTGATE_WEB_HOST=0.0.0.0 \
     FNPORTGATE_WEB_PORT="$PORT" \
     FNPORTGATE_DATA_DIR="$DATA_DIR" \
+    FNPORTGATE_SOCKET="$app_socket" \
+    FNPORTGATE_GATEWAY_PREFIX="/app/fnportgate" \
     FNPORTGATE_LOG_LEVEL=INFO \
       nohup "$app_bin" >>"$LOG_FILE" 2>&1 &
   fi
@@ -104,6 +119,11 @@ start() {
 
   if wait_ready && is_running; then
     log "started, pid=$(read_pid) port=$PORT"
+    if [ -S "$app_socket" ]; then
+      log "统一网关 socket 已就绪：$app_socket"
+    else
+      log "WARN: 统一网关 socket 未创建（$app_socket），桌面入口可能不可用；端口 ${PORT} 仍可直连"
+    fi
     return 0
   fi
 

@@ -5,8 +5,10 @@
       "icon": "images/icon_{0}.png",
       "type": "iframe",
       "protocol": "http",
+      "gatewayPrefix": "/app/fnportgate",
+      "gatewaySocket": "app.sock",
+      "url": "/app/fnportgate",
       "port": "8090",
-      "url": "/",
       "allUsers": true
     }
   }

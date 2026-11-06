@@ -11,10 +11,12 @@
   var $ = function (id) { return document.getElementById(id); };
 
   /* ---------------- 基础 API 封装 ---------------- */
+  // 使用相对路径，使页面无论在端口直连（/）还是飞牛统一网关（/app/fnportgate/）
+  // 下访问，都能正确命中同一个后端。
   function api(path, options) {
     var opts = options || {};
     opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
-    return fetch("/api" + path, opts).then(function (res) {
+    return fetch("api" + path, opts).then(function (res) {
       if (res.status === 204) return null;
       return res.json().catch(function () { return null; }).then(function (data) {
         if (!res.ok) {

@@ -15,6 +15,8 @@ type Config struct {
 	WebHost          string
 	WebPort          int
 	DataDir          string
+	SocketPath       string
+	GatewayPrefix    string
 	DiscoveryTimeout time.Duration
 	DiscoveryTTL     time.Duration
 	LogLevel         string
@@ -73,9 +75,12 @@ func loadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		WebHost:          envString([]string{"FNPORTGATE_WEB_HOST", "FN_UPNP_WEB_HOST"}, "0.0.0.0"),
-		WebPort:          port,
-		DataDir:          absDataDir,
+		WebHost:       envString([]string{"FNPORTGATE_WEB_HOST", "FN_UPNP_WEB_HOST"}, "0.0.0.0"),
+		WebPort:       port,
+		DataDir:       absDataDir,
+		SocketPath:    envString([]string{"FNPORTGATE_SOCKET"}, ""),
+		GatewayPrefix: strings.TrimSuffix(envString([]string{"FNPORTGATE_GATEWAY_PREFIX"}, "/app/fnportgate"), "/"),
+
 		DiscoveryTimeout: time.Duration(discTimeout) * time.Second,
 		DiscoveryTTL:     time.Duration(ttl) * time.Second,
 		LogLevel:         strings.ToUpper(envString([]string{"FNPORTGATE_LOG_LEVEL", "FN_UPNP_LOG_LEVEL"}, "INFO")),
