@@ -1,24 +1,133 @@
 #!/bin/bash
-# Docker 应用的启停由应用中心通过 docker-project 资源统一管理，
-# 这里 start/stop 保持幂等返回 0，status 通过健康检查端点判断服务是否在运行。
-case "$1" in
-  start)
-    exit 0
-    ;;
+# fnPortGate 原生应用生命周期脚本
+# 由飞牛应用中心调用：main start | stop | status
+#   start  启动进程并等待端口就绪，成功 0，失败 1
+#   stop   优雅停止（SIGTERM→SIGKILL 兜底），成功 0
+#   status 运行中返回 0，未运行返回 3（飞牛据此判断应用状态）
+set -u
 
-  stop)
-    exit 0
-    ;;
+APP_BIN="${TRIM_APPDEST:-/var/apps/fnportgate/target}/bin/fnportgate"
+DATA_DIR="${TRIM_PKGVAR:-/tmp/fnportgate}"
+PORT="${TRIM_SERVICE_PORT:-8090}"
+PID_FILE="${DATA_DIR}/fnportgate.pid"
+LOG_FILE="${DATA_DIR}/fnportgate.log"
 
-  status)
-    if curl -sf -m 3 "http://127.0.0.1:8090/api/health" >/dev/null 2>&1; then
-      exit 0
-    fi
-    exit 3
-    ;;
+log() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG_FILE" 2>/dev/null
+}
 
-  *)
-    echo "Unknown command: $1" > "$TRIM_TEMP_LOGFILE" 2>/dev/null || true
-    exit 1
-    ;;
+fail() {
+  # 飞牛会把该文件内容弹窗展示给用户
+  printf '%s\n' "$*" >>"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null
+  log "ERROR: $*"
+  exit 1
+}
+
+read_pid() {
+  [ -f "$PID_FILE" ] || return 1
+  head -n 1 "$PID_FILE" 2>/dev/null | tr -dc '0-9'
+}
+
+is_running() {
+  local pid
+  pid="$(read_pid)"
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
+# 通过 /dev/tcp 判断端口是否可连接，不依赖 curl/wget
+port_open() {
+  (exec 3<>"/dev/tcp/127.0.0.1/${PORT}") >/dev/null 2>&1
+}
+
+wait_ready() {
+  local i
+  for i in $(seq 1 50); do
+    port_open && return 0
+    sleep 0.2
+  done
+  return 1
+}
+
+start() {
+  if is_running; then
+    log "already running, pid=$(read_pid)"
+    return 0
+  fi
+
+  [ -x "$APP_BIN" ] || fail "可执行文件缺失或不可执行：$APP_BIN"
+  mkdir -p "$DATA_DIR" || fail "无法创建数据目录：$DATA_DIR"
+  : >>"$LOG_FILE" 2>/dev/null
+
+  log "starting: $APP_BIN port=$PORT data=$DATA_DIR"
+  cd "$DATA_DIR" || return 1
+
+  if command -v setsid >/dev/null 2>&1; then
+    # setsid 让进程成为独立进程组，stop 时可以整组回收
+    FNPORTGATE_WEB_HOST=0.0.0.0 \
+    FNPORTGATE_WEB_PORT="$PORT" \
+    FNPORTGATE_DATA_DIR="$DATA_DIR" \
+    FNPORTGATE_LOG_LEVEL=INFO \
+      setsid "$APP_BIN" >>"$LOG_FILE" 2>&1 &
+  else
+    FNPORTGATE_WEB_HOST=0.0.0.0 \
+    FNPORTGATE_WEB_PORT="$PORT" \
+    FNPORTGATE_DATA_DIR="$DATA_DIR" \
+    FNPORTGATE_LOG_LEVEL=INFO \
+      nohup "$APP_BIN" >>"$LOG_FILE" 2>&1 &
+  fi
+
+  echo $! >"$PID_FILE"
+
+  if wait_ready; then
+    log "started, pid=$(read_pid) port=$PORT"
+    return 0
+  fi
+
+  log "start timeout after 10s, tail: $(tail -n 5 "$LOG_FILE" 2>/dev/null | tr '\n' ' ')"
+  stop >/dev/null 2>&1
+  fail "端口 ${PORT} 在 10 秒内未就绪，请查看日志：${LOG_FILE}"
+}
+
+stop() {
+  if ! is_running; then
+    rm -f "$PID_FILE"
+    return 0
+  fi
+
+  local pid i
+  pid="$(read_pid)"
+  log "stopping pid=$pid"
+
+  # 优先按进程组终止（setsid 场景），失败则退化为单进程
+  kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+
+  for i in $(seq 1 25); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.2
+  done
+
+  if kill -0 "$pid" 2>/dev/null; then
+    log "graceful stop timeout, sending SIGKILL"
+    kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
+    sleep 0.3
+  fi
+
+  rm -f "$PID_FILE"
+  log "stopped"
+  return 0
+}
+
+status() {
+  if is_running && port_open; then
+    return 0
+  fi
+  return 3
+}
+
+case "${1:-}" in
+  start) start ;;
+  stop) stop ;;
+  status) status ;;
+  *) fail "未知命令：${1:-}" ;;
 esac

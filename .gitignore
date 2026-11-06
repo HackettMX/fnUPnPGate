@@ -1,18 +1,18 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
-
-# 运行时数据（本地测试）
-data/
-*.json.tmp
-
 # 构建产物
 dist/
 *.fpk
+fpk/app/bin/fnportgate
+
+# 打包/构建工具（本地下载，不入库）
 .tools/
+
+# 运行时数据（本地开发）
+go/data/
+data/
+
+# Python（仅打包辅助脚本）
+__pycache__/
+*.py[cod]
 
 # 本地工作记忆
 .workbuddy/

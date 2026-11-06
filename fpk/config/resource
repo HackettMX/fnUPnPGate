@@ -1,10 +1,2 @@
 {
-  "docker-project": {
-    "projects": [
-      {
-        "name": "fnportgate-stack",
-        "path": "docker"
-      }
-    ]
-  }
 }

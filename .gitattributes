@@ -1,0 +1,9 @@
+# 统一换行符为 LF：飞牛上的 bash 若执行到带 CRLF 的脚本会报 "\r: command not found"
+* text=auto eol=lf
+
+*.png binary
+*.PNG binary
+*.fpk binary
+
+fpk/cmd/* text eol=lf
+*.sh text eol=lf

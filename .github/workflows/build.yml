@@ -5,97 +5,93 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "版本号（例如 1.0.0）"
-        required: true
-        default: "1.0.0"
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 解析版本号与镜像名
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: 解析版本号
         id: meta
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(sed -n 's/^version="\(.*\)"/\1/p' fpk/manifest | head -n1)"
           fi
-          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          DH_USER="${{ secrets.DOCKERHUB_USERNAME }}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "ghcr_image=ghcr.io/${OWNER}/fnupnpgate" >> "$GITHUB_OUTPUT"
-          echo "dockerhub_image=${DH_USER}/fnupnpgate" >> "$GITHUB_OUTPUT"
-          echo "pull_image=${DH_USER}/fnupnpgate" >> "$GITHUB_OUTPUT"
+          echo "版本号：${VERSION}"
 
-      - name: 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 登录 GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 登录 Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: 构建并推送镜像（Docker Hub + GHCR 双推）
-        uses: docker/build-push-action@v6
-        with:
-          context: src
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.dockerhub_image }}:${{ steps.meta.outputs.version }}
-            ${{ steps.meta.outputs.dockerhub_image }}:latest
-            ${{ steps.meta.outputs.ghcr_image }}:${{ steps.meta.outputs.version }}
-            ${{ steps.meta.outputs.ghcr_image }}:latest
-
-      - name: 同步版本号到 manifest 与 compose
+      - name: 静态检查
         run: |
-          sed -i "s/^version=.*/version=\"${{ steps.meta.outputs.version }}\"/" fpk/manifest
-          sed -i "s|image:.*|image: ${{ steps.meta.outputs.pull_image }}:${{ steps.meta.outputs.version }}|" fpk/app/docker/docker-compose.yaml
+          cd go
+          go vet ./...
+          go test ./...
+
+      - name: 交叉编译（linux/amd64 静态二进制）
+        run: |
+          mkdir -p fpk/app/bin dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -C go -trimpath \
+            -ldflags "-s -w -X main.version=${{ steps.meta.outputs.version }}" \
+            -o "$PWD/fpk/app/bin/fnportgate" .
+          chmod +x fpk/app/bin/fnportgate fpk/cmd/*
+          ls -lh fpk/app/bin/fnportgate
+
+      - name: 同步 manifest 版本号
+        run: |
+          sed -i "s|^version=.*|version=\"${{ steps.meta.outputs.version }}\"|" fpk/manifest
+          grep -E '^version' fpk/manifest
 
       - name: 下载 fnpack
         run: |
-          curl -fsSL -o /usr/local/bin/fnpack https://static2.fnnas.com/fnpack/fnpack-1.2.3-linux-amd64
+          curl -fsSL -o /usr/local/bin/fnpack \
+            https://static2.fnnas.com/fnpack/fnpack-1.2.3-linux-amd64
           chmod +x /usr/local/bin/fnpack
+          fnpack --help | head -5
 
       - name: 打包 .fpk
         run: |
-          chmod +x fpk/cmd/*
-          cd fpk
-          fnpack build
+          fnpack build -d fpk
+          python3 scripts/fix_fpk_perms.py fnportgate.fpk
           VERSION="${{ steps.meta.outputs.version }}"
-          mv fnportgate.fpk "../fnportgate-${VERSION}.fpk"
-          cd ..
-          ls -la fnportgate-*.fpk
+          mv fnportgate.fpk "dist/fnportgate-${VERSION}.fpk"
+          echo "=== 产物结构 ==="
+          tar -tvzf "dist/fnportgate-${VERSION}.fpk"
+          ls -lh dist/
 
-      - name: 上传 .fpk 构件
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: fnportgate-fpk
-          path: fnportgate-*.fpk
+          path: dist/*.fpk
 
       - name: 发布 Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: fnportgate-*.fpk
+          files: dist/*.fpk
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ## 端口转发 · fnPortGate v${{ steps.meta.outputs.version }}
+
+            **原生应用（无需 Docker）**：安装包内已包含静态编译的可执行文件，
+            安装时不联网、不拉取任何镜像。
+
+            ### 安装
+            飞牛「应用中心 → 设置 → 手动安装」上传本页的 `.fpk` 文件即可。
+            装好后从桌面图标打开，默认端口 `8090`。
+
+            ### 前置条件
+            路由器需开启 UPnP（或 NAT-PMP/IGD），且 NAS 与路由器在同一局域网。

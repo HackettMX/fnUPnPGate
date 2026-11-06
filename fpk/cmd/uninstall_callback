@@ -1,3 +1,4 @@
 #!/bin/sh
-# fnPortGate 卸载后钩子（Docker 应用：启停由应用中心统一管理，本钩子保持幂等）
+# fnPortGate 卸载后钩子：端口映射配置保存在 TRIM_PKGVAR，
+# 是否保留由卸载向导决定，这里不做删除。
 exit 0

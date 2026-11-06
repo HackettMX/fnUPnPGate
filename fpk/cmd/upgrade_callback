@@ -1,3 +1,3 @@
 #!/bin/sh
-# fnPortGate 升级后钩子（Docker 应用：启停由应用中心统一管理，本钩子保持幂等）
+# fnPortGate 升级后钩子：启动动作由应用中心统一发起，此处保持幂等。
 exit 0

@@ -1,3 +1,4 @@
 #!/bin/sh
-# fnPortGate 升级前钩子（Docker 应用：启停由应用中心统一管理，本钩子保持幂等）
+# fnPortGate 升级前钩子：先停旧进程，避免替换二进制时出现 Text file busy。
+"$(dirname "$0")/main" stop >/dev/null 2>&1 || true
 exit 0

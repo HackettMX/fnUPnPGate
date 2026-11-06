@@ -1,5 +1,0 @@
-fastapi>=0.115,<1
-uvicorn[standard]>=0.30,<1
-# 0.42 起 IGD 配置改用 UpnpDevice/IgdDevice(device, event_handler) 新版 API
-async-upnp-client>=0.42,<0.50
-aiohttp>=3.10,<4

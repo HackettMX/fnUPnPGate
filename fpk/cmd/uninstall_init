@@ -1,3 +1,4 @@
 #!/bin/sh
-# fnPortGate 卸载前钩子（Docker 应用：启停由应用中心统一管理，本钩子保持幂等）
+# fnPortGate 卸载前钩子：先停进程，避免残留占用端口。
+"$(dirname "$0")/main" stop >/dev/null 2>&1 || true
 exit 0
