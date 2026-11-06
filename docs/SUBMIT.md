@@ -20,7 +20,7 @@
 ## 二、应用描述（直接复制）
 
 ```
-端口转发（fnPortGate）是给飞牛 fnOS 做的原生 UPnP 端口转发管理工具。安装包约 3 MB，不依赖 Docker，也不需要额外容器或运行时。
+端口转发（fnPortGate）是给飞牛 fnOS 做的原生 UPnP 端口转发管理工具。安装包约 6 MB，同一个包同时支持 x86 与 ARM 机型，不依赖 Docker，也不需要额外容器或运行时。
 
 打开即用：自动发现局域网内支持 UPnP IGD 的路由器，直接展示公网 IP、网关型号与连接状态；填好外部端口和内部端口（内部 IP 自动取本机）就能一键添加 TCP/UDP 映射，之后可随时删除或重新启用。
 
@@ -39,7 +39,7 @@
 | 为什么 manifest 里 `checkport=false`？ | 桌面入口走飞牛统一网关（Unix Socket），不依赖固定端口；`cmd/main start` 会自行检测 8090 是否被占用，被占用时向用户输出明确的中文错误而不是"启动成功"。 |
 | 需要 root 权限吗？ | 不需要。`config/privilege` 声明 `run-as: package`，以应用专属用户运行。 |
 | 数据存在哪里？卸载会残留吗？ | `/vol{n}/@appdata/fnportgate` 下的 `mappings.json`，记录本应用添加过的映射，用于重启后对账。卸载时随应用数据目录一并清理。 |
-| 支持哪些架构？ | 当前 2.1.2 提供 x86（amd64）构建，`platform="x86"`。如需覆盖 ARM 机型，可补 arm64 构建后改为 `platform="all"`。 |
+| 支持哪些架构？ | 2.1.3 起同一个 `.fpk` 内置 `bin/fnportgate-amd64` 与 `bin/fnportgate-arm64` 两份静态二进制，`manifest` 声明 `platform="all"`，`cmd/main` 启动时按 `uname -m` 选用对应文件；x86 与 ARM 机型装同一个包，无需区分。 |
 | 路由器不开 UPnP 能用吗？ | 不能，界面会明确提示"未发现支持 UPnP IGD 的路由器"，并给出重新发现按钮。这是产品的边界，描述里没有夸大成"通用端口映射"。 |
 
 ## 四、提交后
@@ -50,7 +50,7 @@
 
 ## 五、随附材料
 
-- 安装包：`dist/fnportgate-2.1.2.fpk`（3.3 MB）
+- 安装包：`dist/fnportgate-2.1.3.fpk`（6.1 MB，含 amd64 + arm64）
 - 图标：`fpk/ICON.PNG`（64×64）、`fpk/ICON_256.PNG`（256×256）
 - 商店截图（1280 宽）：`docs/screenshots/01-overview.png`、`02-add.png`、`03-external.png`
 - 源码：<https://github.com/HackettMX/fnUPnPGate>

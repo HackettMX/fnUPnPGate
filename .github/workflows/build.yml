@@ -39,15 +39,19 @@ jobs:
           go vet ./...
           go test ./...
 
-      - name: 交叉编译（linux/amd64 静态二进制）
+      - name: 交叉编译（linux/amd64 + arm64 静态二进制）
         run: |
           mkdir -p fpk/app/bin dist
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -C go -trimpath \
-            -ldflags "-s -w -X main.version=${{ steps.meta.outputs.version }}" \
-            -o "$PWD/fpk/app/bin/fnportgate" .
-          chmod +x fpk/app/bin/fnportgate fpk/cmd/*
-          ls -lh fpk/app/bin/fnportgate
+          for GOARCH in amd64 arm64; do
+            echo "==> linux/${GOARCH}"
+            CGO_ENABLED=0 GOOS=linux GOARCH="${GOARCH}" \
+              go build -C go -trimpath \
+              -ldflags "-s -w -X main.version=${{ steps.meta.outputs.version }}" \
+              -o "$PWD/fpk/app/bin/fnportgate-${GOARCH}" .
+          done
+          chmod +x fpk/app/bin/fnportgate-* fpk/cmd/*
+          ls -lh fpk/app/bin/
+          file fpk/app/bin/* || true
 
       - name: 同步 manifest 版本号
         run: |

@@ -23,16 +23,36 @@ fail() {
   exit 1
 }
 
+# 安装包内同时携带 amd64 / arm64 两份静态二进制，
+# 运行时按设备架构挑选，因此 manifest 可以声明 platform="all"。
+detect_arch() {
+  case "$(uname -m 2>/dev/null || echo unknown)" in
+    x86_64 | amd64) printf 'amd64' ;;
+    aarch64 | arm64) printf 'arm64' ;;
+    *) printf '' ;;
+  esac
+}
+
 # 不同 fnOS 版本解包层级不一（有的带 target 层、有的直接铺在应用根），
 # 逐个探测，避免因路径差异导致"启动成功但页面白屏"。
 resolve_bin() {
-  local candidate
-  for candidate in \
-    "${APP_ROOT}/bin/fnportgate" \
-    "${APP_ROOT}/target/bin/fnportgate" \
-    "/var/apps/fnportgate/target/bin/fnportgate" \
-    "/var/apps/fnportgate/bin/fnportgate" \
-    "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/app/bin/fnportgate"; do
+  local arch candidate
+  arch="$(detect_arch)"
+  local candidates=()
+  if [ -n "$arch" ]; then
+    candidates+=(
+      "${APP_ROOT}/bin/fnportgate-${arch}"
+      "${APP_ROOT}/target/bin/fnportgate-${arch}"
+    )
+  fi
+  candidates+=(
+    "${APP_ROOT}/bin/fnportgate"
+    "${APP_ROOT}/target/bin/fnportgate"
+    "/var/apps/fnportgate/target/bin/fnportgate"
+    "/var/apps/fnportgate/bin/fnportgate"
+    "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/app/bin/fnportgate"
+  )
+  for candidate in "${candidates[@]}"; do
     [ -n "$candidate" ] && [ -x "$candidate" ] && { printf '%s' "$candidate"; return 0; }
   done
   return 1
@@ -71,7 +91,7 @@ start() {
   fi
 
   local app_bin
-  app_bin="$(resolve_bin)" || fail "找不到可执行文件：${APP_ROOT}/bin/fnportgate，请重新安装应用"
+  app_bin="$(resolve_bin)" || fail "找不到与当前架构（$(uname -m 2>/dev/null)）匹配的可执行文件：${APP_ROOT}/bin/fnportgate-$(detect_arch)，请重新安装应用"
 
   # 飞牛统一网关要求 Socket 位于应用 target 目录下，与 app/ui/config 的
   # gatewaySocket 对应（即 ${TRIM_APPDEST}/app.sock）。

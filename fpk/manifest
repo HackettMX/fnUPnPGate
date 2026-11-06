@@ -1,9 +1,9 @@
 appname="fnportgate"
-version="2.1.2"
+version="2.1.3"
 display_name="端口转发"
 desc="基于 UPnP 的路由器端口转发管理工具：查看公网 IP 与网关状态，一键增删 NAT 端口映射规则。原生应用，无需 Docker。"
 source="thirdparty"
-platform="x86"
+platform="all"
 
 maintainer="fnPortGate"
 maintainer_url="https://github.com/HackettMX/fnUPnPGate"
@@ -19,4 +19,4 @@ desktop_uidir="ui"
 desktop_applaunchname="fnportgate.main"
 disable_authorization_path=true
 
-changelog="2.1.2 「其他设备添加」拆分为独立面板区块，与端口映射上下分栏，层级更清晰。"
+changelog="2.1.3 同时支持 x86 与 ARM 机型（amd64/arm64 双架构）；静态资源加版本号，修复升级后界面仍停留在旧版本的问题；页脚显示当前版本号。"

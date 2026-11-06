@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -47,8 +48,8 @@ func main() {
 	}
 	// 同时兼容根路径与 /static/ 前缀：前端资源引用任一写法都能命中，
 	// 避免路径不一致导致样式/脚本 404、桌面窗口白屏。
-	mux.Handle("/", staticHandler(staticRoot))
-	mux.Handle("/static/", http.StripPrefix("/static", staticHandler(staticRoot)))
+	mux.Handle("/", staticHandler(staticRoot, version))
+	mux.Handle("/static/", http.StripPrefix("/static", staticHandler(staticRoot, version)))
 
 	// 飞牛统一网关会把 /app/<appname>/ 前缀原样转发进来，这里剥掉前缀，
 	// 让应用自身始终按根路径处理；同时把无尾斜杠的入口重定向到带斜杠，
@@ -157,20 +158,37 @@ func withGatewayPrefix(next http.Handler, prefix string) http.Handler {
 	})
 }
 
-// staticHandler 提供内嵌前端资源，并为入口页面加上禁用缓存的头，
-// 保证升级后用户拿到的始终是新版本界面。
-func staticHandler(root fs.FS) http.Handler {
+// staticHandler 提供内嵌前端资源。
+//
+// 升级后浏览器可能仍在用旧脚本：entry 页面禁缓存，但 app.js/style.css 一旦被
+// 缓存，就会出现"新 HTML + 旧 JS"的错位（界面停在上一版的渲染逻辑）。
+// 因此 entry 页里的资源引用都带 ?v=<version>，带版本号的请求可长缓存，
+// 不带版本号的旧链接一律 no-cache，保证每次发版都能拿到新资源。
+func staticHandler(root fs.FS, ver string) http.Handler {
 	fileServer := http.FileServer(http.FS(root))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, ".html") {
-			w.Header().Set("Cache-Control", "no-cache")
-		} else {
-			w.Header().Set("Cache-Control", "public, max-age=3600")
-		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		// 飞牛桌面本身是独立源的 Web 应用（且常用非默认端口），
 		// 显式允许被任意源 iframe 内嵌，避免桌面窗口白屏。
 		w.Header().Set("Content-Security-Policy", "frame-ancestors *")
+
+		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, "/index.html") {
+			raw, err := fs.ReadFile(root, "index.html")
+			if err == nil {
+				page := strings.ReplaceAll(string(raw), "{{VERSION}}", ver)
+				w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Content-Length", strconv.Itoa(len(page)))
+				_, _ = w.Write([]byte(page))
+				return
+			}
+		}
+
+		if r.URL.Query().Get("v") != "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		fileServer.ServeHTTP(w, r)
 	})
 }

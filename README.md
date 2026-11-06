@@ -4,11 +4,25 @@
 > 通过 UPnP IGD 协议管理路由器的 NAT 端口映射——查看公网 IP、网关状态，一键增删端口转发规则。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-orange" alt="version">
+  <img src="https://img.shields.io/badge/version-2.1.3-orange" alt="version">
   <img src="https://img.shields.io/badge/platform-fnOS-blue" alt="platform">
+  <img src="https://img.shields.io/badge/arch-x86__64%20%7C%20ARM64-6a5acd" alt="arch">
   <img src="https://img.shields.io/badge/language-Go-00ADD8" alt="go">
   <img src="https://img.shields.io/badge/deploy-Native%20(no%20Docker)-success" alt="native">
   <img src="https://img.shields.io/badge/protocol-UPnP%20IGD-green" alt="upnp">
+</p>
+
+---
+
+## 📷 界面预览
+
+<p align="center">
+  <img src="docs/screenshots/01-overview.png" alt="端口映射列表" width="880">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/02-add.png" alt="添加端口映射" width="440">
+  <img src="docs/screenshots/03-external.png" alt="其他设备添加" width="440">
 </p>
 
 ---
@@ -17,10 +31,12 @@
 
 - 🌐 **状态总览** —— 公网 IP、路由器网关型号、连接状态、映射数量，四张卡片一目了然
 - ➕ **端口映射管理** —— 支持 TCP / UDP，一键添加、删除、重新启用
+- 🗂 **两个独立列表** —— 「端口映射」（本应用添加，可删可重启）与「其他设备添加」（路由器上已存在、非本应用托管）分成两块面板，互不打扰
 - 🔍 **自动发现网关** —— 通过 SSDP 组播自动发现支持 UPnP 的路由器，也可手动刷新
 - 🎯 **生效状态标注** —— 明确区分「已生效 / 未生效」的映射规则
 - 🎨 **简洁美观** —— 原生前端，风格贴近飞牛系统，零依赖、零构建
 - 💾 **本地持久化** —— 配置以 JSON 文件保存在应用数据目录，不依赖外部数据库
+- 🖥 **x86 与 ARM 通用** —— 同一个 `.fpk` 内置 amd64 / arm64 两份二进制，安装时按设备架构自动选用
 
 ---
 
@@ -32,6 +48,8 @@
 2. 在飞牛「应用中心 → 设置 → 手动安装」中上传该 `.fpk`
 3. 在应用中心点击启动，桌面出现「端口转发」图标，打开即可
 
+> 同一个包同时包含 **amd64** 与 **arm64** 二进制（`platform="all"`），x86 机型和 ARM 机型（如 EVO 系列）都装同一个文件，启动时按 `uname -m` 自动选择。
+>
 > ⚠️ 请确认路由器已开启 **UPnP** 功能（部分路由器默认关闭）。
 > **安装过程完全离线**：可执行文件已内置在安装包中，不依赖 Docker、不拉取任何镜像。
 
@@ -69,7 +87,8 @@
 | 功能 | 说明 |
 | --- | --- |
 | 状态总览 | 公网 IP、网关设备、连接状态、映射数量四张卡片 |
-| 端口映射列表 | 描述 / 协议 / 外部端口 / 内部地址 / 状态 / 操作 |
+| 端口映射 | 本应用添加的规则，独立面板，带数量角标 |
+| 其他设备添加 | 路由器上已有、非本应用托管的规则，独立面板，可单独清理 |
 | 添加映射 | 描述、协议、外部端口、内部端口、内部 IP、租期 |
 | 删除 / 重新启用 | 对已管理条目；路由器上的外部条目也可一键清理 |
 | 自动刷新 | 每 20 秒自动刷新，也可手动「刷新」重新发现网关 |
@@ -85,7 +104,7 @@
 | 存储 | JSON 文件（`$TRIM_PKGVAR/fnportgate.json`，原子写入） |
 | 部署 | 原生进程，由 `cmd/main` 管理 PID、启停与状态 |
 
-单个静态二进制约 **7 MB**，`CGO_ENABLED=0` 编译，无 glibc 版本依赖。
+单个静态二进制约 7–8 MB（`CGO_ENABLED=0` 编译，无 glibc 版本依赖），双架构打包后 `.fpk` 约 6 MB。
 
 ---
 
@@ -109,14 +128,19 @@ fnPortGate/
 │   │   ├── privilege             # 运行用户声明（run-as: package）
 │   │   └── resource              # 无 docker-project，原生应用无需资源声明
 │   ├── app/
-│   │   ├── bin/fnportgate        # 构建产物（CI 生成，不入库）
+│   │   ├── bin/
+│   │   │   ├── fnportgate-amd64  # 构建产物（CI 生成，不入库）
+│   │   │   └── fnportgate-arm64  # 同上，两份打进同一个包
 │   │   └── ui/                   # 桌面入口 + 图标
-│   ├── cmd/                      # 生命周期脚本（main 管理进程）
+│   ├── cmd/                      # 生命周期脚本（main 按架构选择二进制）
 │   └── wizard/
+├── docs/
+│   ├── SUBMIT.md                 # 应用中心上架申请填表稿
+│   └── screenshots/              # 商店展示截图
 ├── scripts/
 │   ├── gen_icons.py              # 图标生成
 │   ├── fix_fpk_perms.py          # 修正 tar 权限位并重算 checksum
-│   ├── build.sh                  # 交叉编译 + 打包
+│   ├── build.sh                  # 交叉编译（双架构）+ 打包
 │   └── dev.sh                    # 本地开发
 └── README.md
 ```
@@ -155,11 +179,11 @@ FNPORTGATE_WEB_PORT=8090 FNPORTGATE_DATA_DIR=./data go run .
 
 ### 方式一：GitHub Actions（推荐）
 
-推送 `v*` 标签即自动完成「交叉编译 → 打包 .fpk → 发布 Release」，**不涉及任何镜像仓库**：
+推送 `v*` 标签即自动完成「双架构交叉编译 → 打包 .fpk → 发布 Release」，**不涉及任何镜像仓库**：
 
 ```bash
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.1.3
+git push origin v2.1.3
 ```
 
 也可在 **Actions** 页面手动触发 `Build & Package`。
@@ -169,9 +193,24 @@ git push origin v2.0.0
 依赖：Go 1.23+、Python 3（仅用于修正权限位）、[fnpack](https://developer.fnnas.com/docs/cli/fnpack/)（放到 `.tools/` 或加入 `PATH`）。
 
 ```bash
-bash scripts/build.sh 2.0.0 amd64
-# 产物：dist/fnportgate-2.0.0.fpk
+# 默认同时构建 amd64 + arm64
+bash scripts/build.sh 2.1.3
+# 产物：dist/fnportgate-2.1.3.fpk
+
+# 只构建单一架构（调试用）
+bash scripts/build.sh 2.1.3 amd64
 ```
+
+### 升级后界面没变？
+
+2.1.3 起入口页里的资源引用带 `?v=<版本号>`（如 `static/js/app.js?v=2.1.3`），页面本身 `no-cache`，
+因此升级后不会出现「新 HTML + 旧 JS」的错位。页脚会显示当前版本号，可据此确认装的是哪个版本：
+
+```
+本机局域网 IP：192.168.1.10 · 映射数据仅保存在本机 · v2.1.3
+```
+
+如果页脚版本与刚装的包不一致，说明还在读旧缓存——强制刷新（`Ctrl/Cmd + Shift + R`）即可。
 
 ### 为什么需要 `fix_fpk_perms.py`
 
@@ -198,8 +237,27 @@ bash scripts/build.sh 2.0.0 amd64
 
 1. **端口冲突**：默认占用 `8090`。如需修改，要同步改三处：`fpk/manifest` 的 `service_port`、`fpk/app/ui/config` 的 `port`、以及运行时环境变量 `FNPORTGATE_WEB_PORT`（`cmd/main` 已自动读取 `TRIM_SERVICE_PORT`）。
 2. **路由器需开启 UPnP**：部分路由器默认关闭，需在管理界面开启，否则会提示「未发现支持 UPnP 的路由器」。
-3. **架构**：当前包为 x86_64（`manifest` 中 `platform="x86"`）。若需 ARM 版，用 `bash scripts/build.sh 2.0.0 arm64` 编译后，将 `platform` 改为 `arm` 重新打包即可。
+3. **架构**：`manifest` 声明 `platform="all"`，包内同时携带 `bin/fnportgate-amd64` 与 `bin/fnportgate-arm64`，`cmd/main` 启动时按 `uname -m` 选择；未匹配到架构会给出明确错误而不是静默失败。
 4. **安全**：端口映射会把内网服务暴露到公网，请只转发必要端口，并对内网服务做好访问控制。
+
+---
+
+## 🏪 上架应用中心
+
+本应用按飞牛官方申请表提交，字段文案、审核追问问答见 [`docs/SUBMIT.md`](docs/SUBMIT.md)。
+申请表入口：<https://trim-nas.feishu.cn/share/base/form/shrcn5m4MsyeqvEh6c4tm97pQKb>
+
+---
+
+## 🗓 版本历史
+
+| 版本 | 变更 |
+| --- | --- |
+| 2.1.3 | 双架构（amd64 + arm64 同一安装包，`platform="all"`）；静态资源带版本号修复升级后界面不更新；页脚显示版本号 |
+| 2.1.2 | 「其他设备添加」从内部分组改为独立面板区块 |
+| 2.1.1 | 映射列表按来源分组，各带数量统计 |
+| 2.1.0 | 桌面入口改用飞牛统一网关（`gatewayPrefix` + `gatewaySocket`），修复 HTTPS 反代下白屏 |
+| 2.0.0 | 从 Docker 改为原生应用，安装不再联网拉镜像 |
 
 ---
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>端口转发 · fnPortGate</title>
-  <link rel="stylesheet" href="static/css/style.css" />
+  <link rel="stylesheet" href="static/css/style.css?v={{VERSION}}" />
 </head>
 <body>
   <div class="app">
@@ -112,6 +112,8 @@
       <span>本机局域网 IP：<b id="foot-lan">—</b></span>
       <span class="dot-sep">·</span>
       <span>映射数据仅保存在本机，用于路由器 UPnP 管理</span>
+      <span class="dot-sep">·</span>
+      <span id="foot-version">v{{VERSION}}</span>
     </footer>
   </div>
 
@@ -176,6 +178,6 @@
 
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="static/js/app.js"></script>
+  <script src="static/js/app.js?v={{VERSION}}"></script>
 </body>
 </html>
