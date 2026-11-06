@@ -75,7 +75,11 @@ def rebuild_fpk(fpK_path: str) -> None:
     workdir = tempfile.mkdtemp(prefix="fpkfix-")
     with tarfile.open(fpK_path, "r:gz") as outer:
         order = [m.name for m in outer.getmembers()]
-        outer.extractall(workdir, filter="data")
+        try:
+            # Python 3.12+ 的安全解包过滤器
+            outer.extractall(workdir, filter="data")
+        except TypeError:
+            outer.extractall(workdir)
 
     app_tgz = os.path.join(workdir, "app.tgz")
     checksum = rebuild_inner_app_tgz(app_tgz)
